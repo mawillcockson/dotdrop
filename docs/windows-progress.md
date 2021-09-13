@@ -8,7 +8,7 @@
 
 ## Codebase review
 
-### `dotdrop`
+### `dotdrop.py`
 
 The use of `\` to continue lines in import statements makes me want to run
 `black` on the whole project, but I think the code is in quite a readable state
@@ -51,7 +51,9 @@ log(time.results)
 
 Many variables can be renamed to clarify intent (e.g. line `833`: `ret` would be better as `success` in my opinion).
 
-### `utils`
+I didn't realize dotdrop used multithreading. I've generally avoided it, as it's seemed a bit complicated. I don't see any reason to change it out for `trio` or something async, though I do want to as I generally find that to be easier to reason about. This doesn't heavily use it, though.
+
+### `utils.py`
 
 The fully qualified imports of `dotdrop` components makes me uneasy: I wonder
 if it would reduce code reuse and make other parts easier if things like
@@ -178,5 +180,86 @@ else
 fi
 ```
 
+### `templategen.py`
+
+It looks like `dotdrop` uses the Unix `file` command in case the package [`magic`][magic pypi] is missing, and both to determine whether a template file is binary or text.
+
+Before looking at the two functions that handle text and binary template files, respectively, [`magic`][magic pypi] is a module with only a single verion uploaded in 2003, and a link to a website that no longer works.
+
+On second thought, it looks like [`python-magic`][] is a package that exports the `magic` module, and is also what's listed in the `requirements.txt`.
+
+That makes much more sense.
+
+So `utils.dependencies_met()` can check for `file` only if it can't find `magic`.
+
+Also, it looks like the canonical [`python-magic`][] package does not bundle the C library it's wrapping, even though that should be possible now. It's also Linux only.
+
+It could be possible to re-use these. There's also a [circa 2014 alpha-level, abandoned project to wrap the library with Cython for Python 2,][python-cymagic] which could be cleaned up with what looks to be only minor effort. Since the repository available from the link has a broken hardlink in the tar-file, [I included a new one in this repository](./python-cymagic.txz). I believe this would enable builds with the library bundled. [A circa 2009 attempt was made with Python 3][pyfilemagic].
+
+There is the [`python-magic-bin`][] library that looks like it has support for loading the binaries required on Windows, but still doesn't lool like it bundles the libraries with the package wheel.
+
+It does point to a couple projects:
+
+- [File for Windows](http://gnuwin32.sourceforge.net/packages/file.htm) (ca. 2009)
+- [nscaife/file-windows](https://github.com/nscaife/file-windows) (currently maintained)
+
+There's also a [(currently ongoing) discussion about how to bundle the libraries and data with `python-magic`][typecode discussion], and the person who proposed the discussion has made the package [`typecode`][] which does bundle these things.
+
+It could be possible to re-implement the library in pure Python, but at probably significant effort.
+
+What's the code being used for anyways? That's the important part. I suspect if it's just being decoded, a `try: / except:` could be used to attempt decoding to text, and fall back to binary, obviating the need for the library and program in the first place.
+
+It looks like it only templates text files, and binary files are copied unmodified.
+
+However, if the file is detected as text, but it can't be decoded, it won't be templated and instead will be decoded, with the undecodable sequences replaces with the Unicode replacement character.
+
+That to me sounds like it's modifying data that it doesn't need to. A round trip of "copy into place" then "update from in-place" would result in changes to the original file in the repository. I think it would be better to make the templating something that has to be explicitly opted into, and make it fail if the whole file isn't perfectly decodable.
+
+Another slightly lesser worry is that it's reading the whole file into memory, then passing that around.
+
+Might be better to only do that with templating, and leave the copying to something like `shutil.copy2()`
+
+If there's a strong desire to keep the same behaviour, [`cdgriffith/puremagic`][] is a pure-Python drop-in replacement for `python-magic` that looks to be currently maintained. The downside is it only uses magic numbers, instead of libmagic's other heuristics. I wonder if this will be good enough for text vs binary.
+
+I still think the best option would be to make templating explicitly opt-in. That would reduce the magic behaviour, and may make the config file more verbose, but it would make it more predictable, and fail more predictably.
+
+It would also eliminate a dependency.
+
+### `tests/`
+
+It looks like a lot of the tests rely on [`nose`, which has been in maintenance for a while now.][]
+
+I think it would do a lot of good anyways to convert everything to `tox + pytest`, as reimplementing stuff is one of the best ways to become familiar with it.
+
+#### `tests-ng/`
+
+It would take a lot of time, but I think most of these can be converted to `pytest` tests, with the [`tmpdir` fixture][] providing space for file munging.
+
+#### `tests.sh`
+
+Checking for broken links is a good idea, and it would probably be easier to leave that as a shell script, but it could be possible to include it with `tox`, or find a suitable python-based alternative.
+
+Also, it will be nice to have the tool configuration passed as command line arguments to `pylint` and `pycodestyle` and `nose` folded into the `pyproject.toml`.
+
+Line `48-52` is a bit confusing for me, as it looks like it could be shortened to:
+
+```sh
+[ -n "${DOTDROP_WORKERS}" ] && echo "DISABLE workers"
+unset -v DOTDROP_WORKERS > /dev/null 2>&1
+```
+
+Ah, line `76`: it's storing the state of `DOTDROP_WORKERS` so it can disable it for a section, then re-enable it for a later part.
+
 [issue]: <https://github.com/deadc0de6/dotdrop/issues/55>
 [windows support]: <https://github.com/mawillcockson/dotdrop/projects/1>
+[magic pypi]: <https://pypi.org/project/magic/#history>
+[`python-magic`]: <https://pypi.org/project/python-magic/>
+[`python-magic-bin`]: <https://github.com/julian-r/python-magic>
+[typecode discussion]: <https://github.com/ahupp/python-magic/issues/233>
+[`typecode`]: <https://github.com/nexB/typecode>
+[python cymagic]: <https://bitbucket-archive.softwareheritage.org/projects/fc/fcayre/python-cymagic.html>
+[pyfilemagic]: <https://github.com/chemoelectric/pyfilemagic>
+[`cdgriffith/puremagic`]: <https://github.com/cdgriffith/puremagic>
+[`shutil.copy2()`]: <https://docs.python.org/3/library/shutil.html#shutil.copy2>
+[`tmpdir` fixture]: <https://docs.pytest.org/en/stable/reference.html#std-fixture-tmpdir>
+[`nose`, which has been in maintenance for a while now]: <https://nose.readthedocs.io/en/latest/#>
