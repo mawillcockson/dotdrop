@@ -215,7 +215,7 @@ However, if the file is detected as text, but it can't be decoded, it won't be t
 
 That to me sounds like it's modifying data that it doesn't need to. A round trip of "copy into place" then "update from in-place" would result in changes to the original file in the repository. I think it would be better to make the templating something that has to be explicitly opted into, and make it fail if the whole file isn't perfectly decodable.
 
-Another slightly lesser worry is that it's reading the whole file into memory, then passing that around.
+Another slightly lesser worry is that it's reading the whole file into memory, then passing that around. I wonder if that's what the comment in `_handle_bin_file()` is alluding to.
 
 Might be better to only do that with templating, and leave the copying to something like `shutil.copy2()`
 
