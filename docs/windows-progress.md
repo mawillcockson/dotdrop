@@ -194,7 +194,7 @@ So `utils.dependencies_met()` can check for `file` only if it can't find `magic`
 
 Also, it looks like the canonical [`python-magic`][] package does not bundle the C library it's wrapping, even though that should be possible now. It's also Linux only.
 
-It could be possible to re-use these. There's also a [circa 2014 alpha-level, abandoned project to wrap the library with Cython for Python 2,][python-cymagic] which could be cleaned up with what looks to be only minor effort. Since the repository available from the link has a broken hardlink in the tar-file, [I included a new one in this repository](./python-cymagic.txz). I believe this would enable builds with the library bundled. [A circa 2009 attempt was made with Python 3][pyfilemagic].
+It could be possible to re-use these. There's also a [circa 2014 alpha-level, abandoned project to wrap the library with Cython for Python 2,][python-cymagic] which could be cleaned up with what looks to be only minor effort. Since the repository available from the link has a broken hardlink in the tar-file, [I included a new one in this repository][python-cymagic.txz]. I believe this would enable builds with the library bundled. [A circa 2009 attempt was made with Python 3][pyfilemagic].
 
 There is the [`python-magic-bin`][] library that looks like it has support for loading the binaries required on Windows, but still doesn't lool like it bundles the libraries with the package wheel.
 
@@ -263,3 +263,4 @@ Ah, line `76`: it's storing the state of `DOTDROP_WORKERS` so it can disable it 
 [`shutil.copy2()`]: <https://docs.python.org/3/library/shutil.html#shutil.copy2>
 [`tmpdir` fixture]: <https://docs.pytest.org/en/stable/reference.html#std-fixture-tmpdir>
 [`nose`, which has been in maintenance for a while now]: <https://nose.readthedocs.io/en/latest/#>
+[python-cymagic.txz]: <https://github.com/mawillcockson/dotdrop/raw/4662d62c9a3e73e474732f390ea42e066b300fd9/python-cymagic.txz>
