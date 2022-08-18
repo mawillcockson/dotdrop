@@ -1,6 +1,7 @@
-#!/bin/sh
+﻿#!/bin/sh
 # author: deadc0de6 (https://github.com/deadc0de6)
 # Copyright (c) 2017, deadc0de6
+# vim:sw=2 ts=2 sts=2 expandtab:
 
 # stop on first error
 #set -ev
@@ -15,8 +16,10 @@ echo "pyflakes version:"
 pyflakes --version
 
 # PEP8 tests
-which pycodestyle >/dev/null 2>&1
-[ "$?" != "0" ] && echo "Install pycodestyle" && exit 1
+if ! command -v pycodestyle >/dev/null 2>&1; then
+  echo "pycodestyle not found"
+  exit 1
+fi
 echo "testing with pycodestyle"
 pycodestyle --ignore=W503,W504,W605 dotdrop/
 pycodestyle tests/
@@ -47,48 +50,66 @@ if ! ${rl} "${0}" >/dev/null 2>&1; then
   rl="realpath"
 
   if ! hash ${rl}; then
-    echo "\"${rl}\" not found!" && exit 1
+    echo "\"${rl}\" not found!"
+    exit 1
   fi
 fi
-cur=`dirname $(${rl} "${0}")`
 
-workers=${DOTDROP_WORKERS}
-if [ ! -z ${workers} ]; then
-  unset DOTDROP_WORKERS
+# NOTE: this will fail if the script is run as `/bin/sh tests.sh`
+SCRIPT_DIRECTORY="${0%/*}"
+if [ -z "${SCRIPT_DIRECTORY}" ]; then
+  SCRIPT_DIRECTORY="."
+fi
+export SCRIPT_DIRECTORY
+if ! cur="$(cd "${SCRIPT_DIRECTORY}" && pwd -P)"; then
+  echo "can't cd to the directory that '${0}' is in"
+  exit 1
+fi
+unset -v SCRIPT_DIRECTORY
+
+if [ -n "${DOTDROP_WORKERS+'is set'}" ]; then
+  workers="${DOTDROP_WORKERS}"
+  unset -v DOTDROP_WORKERS
   echo "DISABLE workers"
 fi
 
 # execute tests with coverage
-if [ -z ${GITHUB_WORKFLOW} ]; then
+if [ -z "${GITHUB_WORKFLOW}" ]; then
   ## local
   export COVERAGE_FILE=
   # do not print debugs when running tests (faster)
-  unset DOTDROP_DEBUG
+  unset -v DOTDROP_DEBUG
   export DOTDROP_FORCE_NODEBUG=yes
   # tests
-  PYTHONPATH="dotdrop" nose2 --with-coverage --coverage dotdrop --plugin=nose2.plugins.mp -N0
+  PYTHONPATH="dotdrop" nose2 \
+    --with-coverage \
+    --coverage dotdrop \
+    --plugin=nose2.plugins.mp \
+    -N0
 else
   ## CI/CD
   export COVERAGE_FILE="${cur}/.coverage"
   # tests
-  PYTHONPATH="dotdrop" nose2 --with-coverage --coverage dotdrop
+  PYTHONPATH="dotdrop" nose2 \
+    --with-coverage \
+    --coverage dotdrop
 fi
 #PYTHONPATH="dotdrop" python3 -m pytest tests
 
-tmpworkdir="/tmp/dotdrop-tests-workdir"
-export DOTDROP_WORKDIR="${tmpworkdir}"
+### converted to here
 
-if [ ! -z ${workers} ]; then
-  DOTDROP_WORKERS=${workers}
-  echo "ENABLE workers: ${workers}"
+DOTDROP_WORKDIR="$(mktemp -d)"
+export DOTDROP_WORKDIR
+
+if [ -n "${workers:+'is set and not empty'}" ]; then
+  DOTDROP_WORKERS="${workers}"
+  echo "ENABLE workers: ${DOTDROP_WORKERS}"
 fi
 
 # run bash tests
 export DOTDROP_DEBUG="yes"
-unset DOTDROP_FORCE_NODEBUG
-workdir_tmp_exists="no"
-[ -d "~/.config/dotdrop/tmp" ] && workdir_tmp_exists="yes"
-if [ -z ${GITHUB_WORKFLOW} ]; then
+unset -v DOTDROP_FORCE_NODEBUG
+if [ -z "${GITHUB_WORKFLOW+'is set'}" ]; then
   ## local
   export COVERAGE_FILE=
   tests-ng/tests-launcher.py
@@ -99,17 +120,15 @@ else
 fi
 
 # clear workdir
-[ "${workdir_tmp_exists}" = "no" ] && rm -rf ~/.config/dotdrop/tmp
+if [ -d ~/.config/dotdrop/tmp ]; then
+  rm -rf ~/.config/dotdrop/tmp
+fi
 # clear temp workdir
-rm -rf "${tmpworkdir}"
+rm -rf "${DOTDROP_WORKDIR}"
 
 ## test the doc with remark
 ## https://github.com/remarkjs/remark-validate-links
-set +e
-which remark >/dev/null 2>&1
-r="$?"
-set -e
-if [ "$r" != "0" ]; then
+if ! command -v remark >/dev/null 2>&1; then
   echo "[WARNING] install \"remark\" to test the doc"
 else
   remark -f -u validate-links docs/

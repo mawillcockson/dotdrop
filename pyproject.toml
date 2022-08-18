@@ -21,4 +21,71 @@ disable = [
     "too-many-branches",
     "too-many-return-statements",
     "consider-using-with",
+    "consider-using-f-string",
 ]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+minversion = 3.24.0
+isolated_build = true
+envlist = py3{5,6,7,8,9}-local,lint,docs-local
+skip_missing_interpreters = true
+
+[testenv]
+extras =
+    test
+
+[testenv:py3{5,6,7,8,9,10}-{github_workflow,local}]
+setenv =
+    local: COVERAGE_FILE =
+    github_workflow: COVERAGE_FILE = {toxinidir}{/}.coverage
+    local: DOTDROP_FORCE_NODEBUG = yes
+commands =
+    nose2 --with-coverage --coverage dotdrop
+
+[testenv:lint]
+depends = pycodestyle,pyflakes,pylint
+
+[testenv:pycodestyle]
+commands =
+    pycodestyle --ignore=W503,W504,W605 dotdrop/
+    pycodestyle tests/
+    pycodestyle scripts/
+
+[testenv:pyflakes]
+commands =
+    pyflakes dotdrop/
+    pyflakes tests/
+
+[testenv:pylint]
+commands =
+    pylint dotdrop/
+
+[testenv:bash-{github_workflow,local}]
+passenv = DOTDROP_WORKERS
+setenv =
+    local: COVERAGE_FILE =
+    github_workflow: COVERAGE_FILE = {toxinidir}{/}.coverage
+    DOTDROP_WORKDIR = {temp_dir}
+commands =
+    github_workflow: tests-ng/tests-launcher.py 1
+    local: tests-ng/tests-launcher.py
+
+[testenv:docs-{github_workflow,local}]
+allowlist_externals =
+    remark
+    ls
+setenv =
+    github_workflow: COVERAGE_FILE = {toxinidir}{/}.coverage
+    local: COVERAGE_FILE =
+commands =
+    ls "{toxworkdir}"
+    remark -f -u validate-links docs/
+    remark -f -u validate-links README.md
+"""
+
+[tool.pytest.ini_options]
+# an empty --cov-report disables generating a human-readable report, but should still generate
+# a .coverage file
+addopts = "--cov=dotdrop --cov-report="

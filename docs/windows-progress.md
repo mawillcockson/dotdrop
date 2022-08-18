@@ -237,7 +237,7 @@ It would take a lot of time, but I think most of these can be converted to `pyte
 
 #### `tests.sh`
 
-Checking for broken links is a good idea, and it would probably be easier to leave that as a shell script, but it could be possible to include it with `tox`, or find a suitable python-based alternative.
+Checking for broken links is a good idea, and it would probably be easier to leave that as a shell script, but it could be possible to include it with `tox`, or find a suitable python-based alternative. [Especially since `remark-validate-links` requires nodejs,][remark-validate-links] though this is trivial to setup in CI.
 
 Also, it will be nice to have the tool configuration passed as command line arguments to `pylint` and `pycodestyle` and `nose` folded into the `pyproject.toml`.
 
@@ -264,3 +264,4 @@ Ah, line `76`: it's storing the state of `DOTDROP_WORKERS` so it can disable it 
 [`tmpdir` fixture]: <https://docs.pytest.org/en/stable/reference.html#std-fixture-tmpdir>
 [`nose`, which has been in maintenance for a while now.]: <https://nose.readthedocs.io/en/latest/#>
 [python-cymagic.txz]: <https://github.com/mawillcockson/dotdrop/raw/4662d62c9a3e73e474732f390ea42e066b300fd9/python-cymagic.txz>
+[remark-validate-links]: <https://github.com/remarkjs/remark-validate-links#install>
