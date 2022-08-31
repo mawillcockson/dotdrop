@@ -1,0 +1,10 @@
+# Used by GitHub in blame views
+# Any commits listed here will not be considered for blame
+# from:
+# https://docs.github.com/en/repositories/working-with-files/using-files/viewing-a-file#ignore-commits-in-the-blame-view
+# Use from git as:
+# git blame --ignore-revs-file=.git-blam-ignore-revs -- path/to/file
+# https://git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt
+
+# added extra empty line
+4836221b1211db645043fc2e7ebca49912c21756
