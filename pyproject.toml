@@ -2,7 +2,70 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[tool.pylint.'MESSAGES CONTROL']
+[tool.pylint.main]
+# These are regexes matched against the full relative(?) path, unlike the
+# 'ignore' option which only matches against os.path.basename().
+# Also, note that \ can't be used in the regular expression, as pylint replaces
+# it with an escaped version, to support using Windows paths: e.g. r"file\.ext"
+# becomes r"file\\.ext"
+ignore-paths = [
+    # original files
+    'dotdrop/__init__.py$',
+    'dotdrop/action.py$',
+    'dotdrop/cfg_aggregator.py$',
+    'dotdrop/cfg_yaml.py$',
+    'dotdrop/comparator.py$',
+    'dotdrop/dictparser.py$',
+    'dotdrop/dotdrop.py$',
+    'dotdrop/dotfile.py$',
+    'dotdrop/exceptions.py$',
+    'dotdrop/importer.py$',
+    'dotdrop/installer.py$',
+    'dotdrop/jhelpers.py$',
+    'dotdrop/linktypes.py$',
+    'dotdrop/logger.py$',
+    'dotdrop/options.py$',
+    'dotdrop/profile.py$',
+    'dotdrop/settings.py$',
+    'dotdrop/templategen.py$',
+    'dotdrop/updater.py$',
+    'dotdrop/utils.py$',
+    'dotdrop/version.py$',
+    # original tests
+    'tests/__init__.py$',
+    'tests/dummy.py$',
+    'tests/helpers.py$',
+    'tests/test_compare.py$',
+    'tests/test_import.py$',
+    'tests/test_install.py$',
+    'tests/test_jhelpers.py$',
+    'tests/test_listings.py$',
+    'tests/test_remove.py$',
+    'tests/test_update.py$',
+    'tests/test_yamlcfg.py$',
+    # additional original files
+    '.github/.*$',
+    'completion/.*$',
+    'docs/.*$',
+    'highlighters/.*$',
+    'packages/.*$',
+    'scripts/.*$',
+    'tests-ng/.*$',
+    'setup.py$',
+    # generated directories
+    '.mypy_cache/.*$',
+    '.pytest_cache/.*$',
+    '.tox/.*$',
+    'dotdrop.egg-info/.*$',
+    'venv/.*$',
+    '__pycache__/.*$',
+]
+
+# for black, from:
+# https://black.readthedocs.io/en/stable/guides/using_black_with_other_tools.html#id3
+max-line-length = 88
+
+[tool.pylint."messages control"]
 # Disable the message, report, category or checker with the given id(s). You
 # can either give multiple identifiers separated by comma (,) or put this
 # option multiple times (only on the command line, not in the configuration
@@ -12,80 +75,543 @@ build-backend = "setuptools.build_meta"
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use "--disable=all --enable=classes
 # --disable=W".
-disable = [
-    "too-many-instance-attributes",
-    "too-many-arguments",
-    "too-few-public-methods",
-    "too-many-locals",
-    "too-many-statements",
-    "too-many-branches",
-    "too-many-return-statements",
-    "consider-using-with",
-    "consider-using-f-string",
+disable = []
+
+[tool.black]
+# this option is read with re.X set for multi-line mode
+extend-exclude = '''
+# original files
+(^/dotdrop/__init__\.py)|
+(^/dotdrop/action\.py)|
+(^/dotdrop/cfg_aggregator\.py)|
+(^/dotdrop/cfg_yaml\.py)|
+(^/dotdrop/comparator\.py)|
+(^/dotdrop/dictparser\.py)|
+(^/dotdrop/dotdrop\.py)|
+(^/dotdrop/dotfile\.py)|
+(^/dotdrop/exceptions\.py)|
+(^/dotdrop/importer\.py)|
+(^/dotdrop/installer\.py)|
+(^/dotdrop/jhelpers\.py)|
+(^/dotdrop/linktypes\.py)|
+(^/dotdrop/logger\.py)|
+(^/dotdrop/options\.py)|
+(^/dotdrop/profile\.py)|
+(^/dotdrop/settings\.py)|
+(^/dotdrop/templategen\.py)|
+(^/dotdrop/updater\.py)|
+(^/dotdrop/utils\.py)|
+(^/dotdrop/version\.py)|
+# original tests
+(^/tests/__init__\.py)|
+(^/tests/dummy\.py)|
+(^/tests/helpers\.py)|
+(^/tests/test_compare\.py)|
+(^/tests/test_import\.py)|
+(^/tests/test_install\.py)|
+(^/tests/test_jhelpers\.py)|
+(^/tests/test_listings\.py)|
+(^/tests/test_remove\.py)|
+(^/tests/test_update\.py)|
+(^/tests/test_yamlcfg\.py)|
+# additional original files
+(^/\.github/.*)|
+(^/completion/.*)|
+(^/docs/.*)|
+(^/highlighters/.*)|
+(^/packages/.*)|
+(^/scripts/.*)|
+(^/tests-ng/.*)|
+(^/setup\.py)|
+# generated directories
+(^/\.mypy_cache/.*)|
+(^/\.pytest_cache/.*)|
+(^/\.tox/.*)|
+(^/dotdrop\.egg-info/.*)|
+(^/venv/.*)|
+(^/__pycache__/.*)$
+'''
+
+[tool.isort]
+profile = "black"
+py_version = "auto"
+atomic = true
+src_paths = ["dotdrop", "tests"]
+# NOTE: there's a bug in isort's path comparison that seems to prevent
+# backslashes from being specified in the ignore list, and forces them in the
+# collected list of paths, making any path with a slash in it always compare
+# unequal. In general, the path comparison could use a lot of work, mainly in
+# having the OS perform as much of the path comparison as possible (e.g.
+# os.path.samefile and Path.samefile) instead of performing string
+# manipulations and comparisons on them:
+# https://github.com/PyCQA/isort/blob/12cc5fbd67eebf92eb2213b03c07b138ae1fb448/isort/settings.py#L593-L648
+extend_skip = [
+    # original files
+    '__init__.py',
+    'action.py',
+    'cfg_aggregator.py',
+    'cfg_yaml.py',
+    'comparator.py',
+    'dictparser.py',
+    'dotdrop.py',
+    'dotfile.py',
+    'exceptions.py',
+    'importer.py',
+    'installer.py',
+    'jhelpers.py',
+    'linktypes.py',
+    'logger.py',
+    'options.py',
+    'profile.py',
+    'settings.py',
+    'templategen.py',
+    'updater.py',
+    'utils.py',
+    'version.py',
+    # original tests
+    '__init__.py',
+    'dummy.py',
+    'helpers.py',
+    'test_compare.py',
+    'test_import.py',
+    'test_install.py',
+    'test_jhelpers.py',
+    'test_listings.py',
+    'test_remove.py',
+    'test_update.py',
+    'test_yamlcfg.py',
+    # additional original files
+    '.github',
+    'completion',
+    'docs',
+    'highlighters',
+    'packages',
+    'scripts',
+    'tests-ng',
+    'setup.py',
+    # generated directories
+    '.mypy_cache',
+    '.pytest_cache',
+    '.tox',
+    'dotdrop.egg-info',
+    'venv',
+    '__pycache__',
 ]
 
+[tool.mypy]
+# commented out lines are either duplicates, or show the default value
+
+### Import discovery
+# A comma-separated list of paths which should be checked by mypy if none are
+# given on the command line. Supports recursive file globbing using glob, where
+# * (e.g. *.py) matches files in the current directory and **/ (e.g. **/*.py)
+# matches files in any directories below the current one. User home directory
+# and environment variables will be expanded.
+files = ["dotdrop", "tests"]
+# A regular expression that matches file names, directory names and paths which
+# mypy should ignore while recursively discovering files to check. Use forward
+# slashes (/) as directory separators on all platforms.
+# Note that the TOML equivalent differs slightly. It can be either a single
+# string (including a multi-line string) – which is treated as a single regular
+# expression – or an array of such strings.
+# This is kept as a regex to match black's configuration
+exclude = '''(?x)
+# original files
+(^/dotdrop/__init__\.py)|
+(^/dotdrop/action\.py)|
+(^/dotdrop/cfg_aggregator\.py)|
+(^/dotdrop/cfg_yaml\.py)|
+(^/dotdrop/comparator\.py)|
+(^/dotdrop/dictparser\.py)|
+(^/dotdrop/dotdrop\.py)|
+(^/dotdrop/dotfile\.py)|
+(^/dotdrop/exceptions\.py)|
+(^/dotdrop/importer\.py)|
+(^/dotdrop/installer\.py)|
+(^/dotdrop/jhelpers\.py)|
+(^/dotdrop/linktypes\.py)|
+(^/dotdrop/logger\.py)|
+(^/dotdrop/options\.py)|
+(^/dotdrop/profile\.py)|
+(^/dotdrop/settings\.py)|
+(^/dotdrop/templategen\.py)|
+(^/dotdrop/updater\.py)|
+(^/dotdrop/utils\.py)|
+(^/dotdrop/version\.py)|
+# original tests
+(^/tests/__init__\.py)|
+(^/tests/dummy\.py)|
+(^/tests/helpers\.py)|
+(^/tests/test_compare\.py)|
+(^/tests/test_import\.py)|
+(^/tests/test_install\.py)|
+(^/tests/test_jhelpers\.py)|
+(^/tests/test_listings\.py)|
+(^/tests/test_remove\.py)|
+(^/tests/test_update\.py)|
+(^/tests/test_yamlcfg\.py)|
+# additional original files
+(^/\.github/.*)|
+(^/completion/.*)|
+(^/docs/.*)|
+(^/highlighters/.*)|
+(^/packages/.*)|
+(^/scripts/.*)|
+(^/tests-ng/.*)|
+(^/setup\.py)|
+# generated directories
+(^/\.mypy_cache/.*)|
+(^/\.pytest_cache/.*)|
+(^/\.tox/.*)|
+(^/dotdrop\.egg-info/.*)|
+(^/venv/.*)|
+(^/__pycache__/.*)$
+'''
+# Support namespace packages (PEP 420, __init__.py-less)
+# Allow typechecking single-file scripts
+namespace_packages = true
+# # This flag tells mypy that top-level packages will be based in either the
+# # current directory, or a member of the MYPYPATH environment variable or
+# # mypy_path config option. This option is only useful in conjunction with
+# # namespace_packages.
+# explicit_package_bases = false
+# # Suppresses error messages about imports that cannot be resolved.
+# ignore_missing_imports = false
+# # When the module that's being imported isn't explicitly listed in the files
+# # section:
+# # - "normal": follows all imports normally and type checks all top level code
+# #   (as well as the bodies of all functions and methods with at least one
+# #   type
+# # - "silent": behaves in the same way as normal but will additionally
+# #   suppress any error messages
+# # - "skip": will not follow imports and instead will silently replace the
+# #   module (and anything imported from it) with an object of type Any
+# # - "error": behaves in the same way as skip but is not quite as silent – it
+# #   will flag the import as an error
+# #
+# # Using this option in a per-module section (potentially with a wildcard, as
+# # described at the top of this page) is a good way to prevent mypy from
+# # checking portions of your code.
+# follow_imports = "normal"
+# # Respect the follow_imports setting even for stub (.pyi) files
+# follow_imports_for_stubs = false
+# # Specifies the path to the Python executable to inspect to collect a list of
+# # available PEP 561 packages. Defaults to the executable used to run mypy.
+# python_executable = ''
+# # Disables using type information in installed packages (see PEP 561). This
+# # will also disable searching for a usable Python executable.
+# no_site_packages = false
+# # Enables reporting error messages generated within installed packages (see PEP
+# # 561 for more details on distributing type information). Those error messages
+# # are suppressed by default, since you are usually not able to control errors
+# # in 3rd party code.
+# no_silence_site_packages = false
+### Import discovery
+
+strict = true
+##### enabled by strict in v0.971
+# # Warn about unused '[mypy-<pattern>]' config sections
+# warn_unused_configs = true
+# # Disallow usage of generic types that do not specify explicit type parameters
+# disallow_any_generics = true
+# # Disallow subclassing values of type 'Any' when defining classes
+# disallow_subclassing_any = true
+# # Disallow calling functions without type annotations from functions with type annotations
+# disallow_untyped_calls = true
+# # Disallow defining functions without type annotations or with incomplete type annotations
+# disallow_untyped_defs = true
+# # Disallow defining functions with incomplete type annotations (inverse: --allow-incomplete-defs)
+# disallow_incomplete_defs = true
+# # Type check the interior of functions without type annotations
+# check_untyped_defs = true
+# # Disallow decorating typed functions with untyped decorators
+# disallow_untyped_decorators = true
+# # Don't assume arguments with default values of None are Optional
+# no_implicit_optional = true
+# # Warn about casting an expression to its inferred type
+# # Don't cast something that's already an appropriate type
+# warn_redundant_casts = true
+# # Warn about unneeded '# type: ignore' comments
+# warn_unused_ignores = true
+# # Warn about returning values of type Any from non- Any typed functions
+# warn_return_any = true
+# # Treat imports as private unless aliased
+# no_implicit_reexport = true
+# # Prohibit equality, identity, and container checks for non-overlapping types
+# strict_equality = true
+# # Make arguments prepended via Concatenate be truly positional-only
+# # This refers to typing.Concatenate instroduced by PEP 612 
+# strict_contatenate = true
+##### strict
+
+### Platform configuration
+# # Specifies the Python version used to parse and check the target program,
+# # string in format MAJOR.MINOR (e.g. 3.7, defaults to version running mypy)
+# python_version = ''
+# # What OS platform should mypy assume the code will run on? (e.g. "win32",
+# # "darwin", etc, default current sys.platform)
+# platform = ''
+# # Specifies a list of variables that mypy will treat as compile-time
+# # constants that are always true.
+# always_true = []
+# # Specifies a list of variables that mypy will treat as compile-time
+# # constants that are always false.
+# always_false = ["TYPE_CHECKING"]
+### Platform configuration
+
+### Disallow dynamic typing
+## Don't allow working with non-specific types
+# Disallow Any types resulting from unfollowed imports
+disallow_any_unimported = true
+# Disallow all expressions that have type Any
+disallow_any_expr = true
+# Disallow functions that have Any in their signature after decorator transformation
+disallow_any_decorated = true
+# Disallow explicit Any in type positions
+disallow_any_explicit = true
+##### enabled by strict
+# # Disallow usage of generic types that do not specify explicit type parameters
+# disallow_any_generics = true
+# # Disallow subclassing values of type 'Any' when defining classes
+# disallow_subclassing_any = true
+### Disallow dynamic typing
+
+### Untyped definitions and calls
+##### enabled by strict
+# # Disallow calling functions without type annotations from functions with type annotations
+# disallow_untyped_calls = true
+# # Disallow defining functions without type annotations or with incomplete type annotations
+# disallow_untyped_defs = true
+# # Disallow defining functions with incomplete type annotations (inverse: --allow-incomplete-defs)
+# disallow_incomplete_defs = true
+# # Type check the interior of functions without type annotations
+# check_untyped_defs = true
+# # Disallow decorating typed functions with untyped decorators
+# disallow_untyped_decorators = true
+### Untyped definitions and calls
+
+### None and Optional handling
+##### enabled by strict
+# # Don't assume arguments with default values of None are Optional
+# no_implicit_optional = true
+##### enabled by strict
+# # Enables or disables strict Optional checks. If False, mypy treats None as
+# # compatible with every type.
+# strict_optional = true
+### None and Optional handling
+
+### Configuring warnings
+##### enabled by strict
+# # Warn about casting an expression to its inferred type
+# # Don't cast something that's already an appropriate type
+# warn_redundant_casts = true
+# # Warn about unneeded '# type: ignore' comments
+# warn_unused_ignores = true
+##### enabled by strict
+# # Warn about functions that end without returning, that aren't explicitly typed
+# # as such with typing.NoReturn
+# warn_no_return = true
+# Shows errors for missing return statements on some execution paths.
+warn_return_any = true
+# Warn about statements or expressions inferred to be unreachable or redundant
+warn_unreachable = true
+### Configuring warnings
+
+### Suppressing errors
+# # Shows errors related to strict None checking, if the global strict_optional
+# # flag is enabled.
+# show_non_errors = true
+# # Ignores all non-fatal errors
+# ignore_errors = false
+### Suppressing errors
+
+### Miscellaneous strictness flags
+# # Causes mypy to suppress errors caused by not being able to fully infer the
+# # types of global and class variables.
+# allow_untyped_globals = false
+# # Allows variables to be redefined with an arbitrary type, as long as the
+# # redefinition is in the same block and nesting level as the original
+# # definition.
+# # Normally, a variable can be reassigned, but it's type can't be changed.
+# allow_redefinition = false
+# Disallows inferring variable type for None from two assignments in different
+# scopes.
+local_partial_types = false
+# # Disables reporting error codes. Find them with `show_error_codes = true`.
+# disable_error_code = [""]
+# # Allows enabling one or multiple error codes globally.
+# # Note: This option will override disabled error codes from the
+# # disable_error_code option.
+# enable_error_code = [""]
+##### enabled by strict
+# # By default, imported values to a module are treated as exported and mypy
+# # allows other modules to import them. When false, mypy will not re-export
+# # unless the item is imported using from-as or is included in __all__. Note
+# # that mypy treats stub files as if this is always disabled.
+# implicit_reexport = false
+# # Make arguments prepended via Concatenate be truly positional-only
+# # This refers to typing.Concatenate instroduced by PEP 612 
+# strict_contatenate = true
+# # Prohibit equality, identity, and container checks for non-overlapping types
+# strict_equality = true
+##### enabled by strict
+### Miscellaneous strictness flags
+
+### Configuring error messages
+# Precede errors with "note:" messages explaining context
+show_error_context = true
+# Show column numbers in error messages
+show_column_numbers = true
+# Show error codes in error messages
+show_error_codes = true
+# Use visually nicer output in error messages: Use soft word wrap, show source
+# code snippets, and show error location markers
+pretty = true
+# # Do not colorize error messages
+# color_output = true
+# # Show error stats summary
+# error_summary = true
+# Show absolute paths to files
+show_absolute_path = true
+### Configuring error messages
+
+### Miscellaneous
+# Don't let us forget about # type: ignore
+warn_unused_ignores = true
+### Miscellaneous
+
+### Incremental mode
+# Cache previous checking results
+incremental = true
+# # Specifies the location where mypy stores incremental cache info. User home
+# # directory and environment variables will be expanded. This setting will be
+# # overridden by the MYPY_CACHE_DIR environment variable.
+# # 
+# # Note that the cache is only read when incremental mode is enabled but is
+# # always written to, unless the value is set to /dev/null (UNIX) or nul
+# # (Windows).
+# cache_dir = ".mypy_cache"
+### Incremental mode
+
+plugins = [
+    "pydantic.mypy",
+]
+
+[[tool.mypy.overrides]]
+module = ["dotdrop.defaults"]
+# pydantic.BaseSettings.__init__ uses explicit Any
+disallow_any_expr = false
+# Settings.serialize uses explicit Any
+disallow_any_explicit = false
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+# NOTE::TYPE @pytest.raises has type typing.Any
+disallow_any_expr = false
+
+[[tool.mypy.overrides]]
+module = ["tests.conftest", "tests.*.conftest"]
+# NOTE::TYPE @pytest.fixture has type typing.Any
+disallow_any_expr = false
+
+[[tool.mypy.overrides]]
+module = [
+    "dotdrop",
+    "dotdrop.action",
+    "dotdrop.cfg_aggregator",
+    "dotdrop.cfg_yaml",
+    "dotdrop.comparator",
+    "dotdrop.dictparser",
+    "dotdrop.dotdrop",
+    "dotdrop.dotfile",
+    "dotdrop.exceptions",
+    "dotdrop.importer",
+    "dotdrop.installer",
+    "dotdrop.jhelpers",
+    "dotdrop.linktypes",
+    "dotdrop.logger",
+    "dotdrop.options",
+    "dotdrop.profile",
+    "dotdrop.settings",
+    "dotdrop.templategen",
+    "dotdrop.updater",
+    "dotdrop.utils",
+    "dotdrop.version",
+    "tests.dummy",
+    "tests.helpers",
+    "tests.test_compare",
+    "tests.test_import",
+    "tests.test_install",
+    "tests.test_jhelpers",
+    "tests.test_listings",
+    "tests.test_remove",
+    "tests.test_update",
+    "tests.test_yamlcfg",
+]
+ignore_errors = true
+
+[tool.pydantic-mypy]
+warn_untyped_fields = true
+warn_required_dynamic_aliases = true
+
 [tool.tox]
-legacy_tox_ini = """
+legacy_tox_ini = '''
 [tox]
-minversion = 3.24.0
+minversion = 3.25.1
 isolated_build = true
-envlist = py3{5,6,7,8,9}-local,lint,docs-local
+envlist = py3{7,8,9,10}-local,lint
 skip_missing_interpreters = true
 
 [testenv]
 extras =
     test
 
-[testenv:py3{5,6,7,8,9,10}-{github_workflow,local}]
-setenv =
-    local: COVERAGE_FILE =
-    github_workflow: COVERAGE_FILE = {toxinidir}{/}.coverage
-    local: DOTDROP_FORCE_NODEBUG = yes
+[testenv:py3{7,8,9,10}-{ci,local}]
+deps =
+    pytest-cov
 commands =
-    nose2 --with-coverage --coverage dotdrop
+    ci: pytest {posargs}
+    local: pytest --no-cov {posargs}
 
 [testenv:lint]
-depends = pycodestyle,pyflakes,pylint
-
-[testenv:pycodestyle]
+deps =
+    pytest  # needed for typechecking tests
+    isort
+    black
+    pylint
+    mypy
+# All of the commands should run, even if they fail, so all the output can be shown.
+ignore_errors = true
 commands =
-    pycodestyle --ignore=W503,W504,W605 dotdrop/
-    pycodestyle tests/
-    pycodestyle scripts/
-
-[testenv:pyflakes]
-commands =
-    pyflakes dotdrop/
-    pyflakes tests/
-
-[testenv:pylint]
-commands =
-    pylint dotdrop/
-
-[testenv:bash-{github_workflow,local}]
-passenv = DOTDROP_WORKERS
-setenv =
-    local: COVERAGE_FILE =
-    github_workflow: COVERAGE_FILE = {toxinidir}{/}.coverage
-    DOTDROP_WORKDIR = {temp_dir}
-commands =
-    github_workflow: tests-ng/tests-launcher.py 1
-    local: tests-ng/tests-launcher.py
-
-[testenv:docs-{github_workflow,local}]
-allowlist_externals =
-    remark
-    ls
-setenv =
-    github_workflow: COVERAGE_FILE = {toxinidir}{/}.coverage
-    local: COVERAGE_FILE =
-commands =
-    ls "{toxworkdir}"
-    remark -f -u validate-links docs/
-    remark -f -u validate-links README.md
-"""
+    isort --check .
+    black --check .
+    pylint dotdrop/ tests/
+    mypy dotdrop/ tests/
+'''
 
 [tool.pytest.ini_options]
+# 6.2.0 was the first version to have easily accessible types
+minversion = "7.1.2"
+# ignored files are listed using `collect_ignore` in conftest.py:
+# https://docs.pytest.org/en/7.1.x/example/pythoncollection.html#customizing-test-collection
+testpaths = ["tests"]
+# --strict-markers catches things like @pytest.mark.parameterize (should be "parametrize")
 # an empty --cov-report disables generating a human-readable report, but should still generate
 # a .coverage file
-addopts = "--cov=dotdrop --cov-report="
+addopts = "--strict-markers --cov=dotdrop --cov-report="
+# NOTE: --doctest-modules might be very useful if I want to include detailed
+# documentation in the functions themselves
+# If @pytest.mark.parametrize evaluates its parameterset as empty, this will
+# count that as a test failure.
+# https://docs.pytest.org/en/stable/reference.html#confval-empty_parameter_set_mark
+empty_parameter_set_mark = "fail_at_collect"
+# Print logging.debug() etc calls to the same console pytest is printing the
+# ongoing run info.
+log_cli = true
+# The lowest logging level to print with log_cli=true
+log_cli_level = "INFO"
+# Any passing tests marked with @pytest.mark.xfail will fail the test suite
+xfail_strict = true
+# # for use with pytest-timeout to prevent test runs from getting stuck in CI/CD
+# timeout = 240
+# markers = [""]
