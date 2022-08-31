@@ -250,6 +250,223 @@ unset -v DOTDROP_WORKERS > /dev/null 2>&1
 
 Ah, line `76`: it's storing the state of `DOTDROP_WORKERS` so it can disable it for a section, then re-enable it for a later part.
 
+### `options.py`
+
+I think the first thing to do is tackle the most disconnected part of the code,
+define how it interfaces with the calling code, and rewrite it to be testable
+while maintaining that interface.
+
+I don't think it's the least tightly-coupled part, but having trust in the way
+configuration data is collected and presented would be really useful in further
+refactors/rewrites. Configuration seems to be the secondary concern of this
+project, after filesystem interaction.
+
+I am picturing using [`pydantic`][] to handle merging various configuration
+sources, and using [`python-inject`][] to handle providing this configuration
+data further down the call stack.
+
+Tests should be easy to write, taking examples of valid and invalid
+configuration files from existing tests and examples.
+
+I would also like to have a test that demonstrates all the possible options in
+the config file, as well as a minimal config file.
+
+This way, when another function is supposed to manipulate and write to the
+configuration file, it's much easier to make assertions about whether only the
+specific portions the test is concerned with have been updated or not.
+
+The main `Options` class is a bit odd, with how it subclasses from
+`AttrMonitor`. I imagine `AttrMonitor` might have been intended to be an
+abstract base class, with how it's `_attr_set` method is empty. I wonder how the
+rest of the methods are used later, what with how the `__setattr__` method calls
+its `super()`, which I _think_ is returning the `AttrMonitor` class.
+
+```python
+class _object:
+    def __setattr__(self, key, value):
+        print("in _object")
+        return super().__setattr__(key, value)
+
+
+class T(_object):
+    def __setattr__(self, key, value):
+        print("in T")
+        return super().__setattr__(key, value)
+
+class F(T): pass
+
+F().hello = "world"
+```
+
+prints
+
+```text
+in T
+in _object
+```
+
+Since every class without an explicit superclass subclasses `object`, I think
+the `AttrMonitor` class doesn't do anything but prevent a value from being
+returned from setting an attribute.
+
+It looks like this was original added to help catch misnamed attributes:
+
+<https://github.com/dotdrop/dotdrop/commit/ad2d74e0f18c3632b33e5d92f819e8a94b2a6c15>
+
+The `pylint` config comment lines could also be condensed down to one line in
+the scope of the function body.
+
+I think vendoring this app's dependencies using something like [`vendoring`][]
+should be considered after refactoring. [`pipx` supports running the app
+directly from the source directory][pipx __main__.py], and I think that would be
+useful for this app, too. Vendoring the dependencies would make it possible to
+add the app's source code repository as a submodule, and then all that would be
+needed would be a supported Python installation. No virtual environment, no
+installation with `pip`, no adding packages to the system Python environment. It
+would significantly decrease any bootstrapping necessary. I think it would
+ultimately be cool, but I think a first step is to iron everything else out,
+increase test coverage, and then consider vendoring dependencies. `pipx` can be
+used to install the app in the meantime.
+
+The `Options` class looks like it does the following:
+
+- Sets a bunch of attributes to "empty" values
+- If it wasn't called with `Options(args)`, it calls `docopt` here to do the
+  argument parsing
+- Sets the `debug` instance attribute to `True` if the `DOTDROP_DEBUG`
+  environment variable is set at all, or if `--verbose` is given on the command
+  line
+- Allows the existence of `DOTDROP_FORCE_NODEBUG` to override `DOTDROP_DEBUG`
+  and set `self.debug` to `False`
+- `--dry` -> `self.dry`
+- `--profile` -> `self.profile`
+- `self.confpath` <- first of:
+  - `osp.expanduser(--cfg)`
+  - `osp.expanduser(os.environ["DOTDROP_CONFIG"])`
+  - `./config.yaml`
+  - `./config.toml`
+  - `osp.join(osp.expanduser(os.environ["XDG_CONFIG_HOME"], "dotdrop", "config.yaml")`
+  - `osp.join(osp.expanduser(os.environ["XDG_CONFIG_HOME"], "dotdrop", "config.toml")`
+  - `osp.expanduser("~/.config/dotdrop/config.yaml")`
+  - `/etc/xdg/dotdrop/config.yaml`
+  - `/etc/dotdrop/config.yaml`
+  - `osp.expanduser("~/.config/dotdrop/config.toml")`
+  - `/etc/xdg/dotdrop/config.toml`
+  - `/etc/dotdrop/config.toml`
+- `Options()`
+  - `Options._read_config()`
+    - `CfgAggregator()`
+      - `CfgAggregator._load()`
+        - `CfgYaml._load_yaml()`
+          - `CfgYaml._yaml_load()`
+            - if suffix is `.toml`
+              - `toml.loads()`
+              - Creates keys for `dotdrop` and `profiles` if they didn't exist
+              - The note indicates that `toml.loads()` doesn't handle empty empty
+                sections, but it does, it just loads them as an empty dictionary, and
+                when dumping if the section is `None`, it removes the key
+            - else use `ruamel.yaml` to load the yaml file in "round-trip" mode, not
+              "safe mode"
+              - `CfgYaml.__yaml_load()`
+- Fix deprecated configuration values:
+  - `link_by_default` -> `link_on_import`
+    - Mark the configuration as `_dirty` and `_dirty_deprecated`
+  - `link: true/false` -> `link/nolink`
+  - `link: link` -> `absolute`
+  - `link_children: true/false` -> `link: link_children`
+- `CfgYaml._validate()`
+  - An empty dictionary validates
+  - Do the following keys exist at top-level?
+    - `config`
+    - `dotfiles`
+    - `profiles`
+  - If `config` is empty, validate
+  - Only fail if `link_dotfile_default` under `config` exists and isn't one of
+    `LinkTypes`
+- 
+- `CfgAggregator._validate()`
+
+It looks like it checks configuration data sources in the following order:
+
+1. 
+
+I think a good way to go about refactoring `Options` is to write a parallel
+provider of the same interface, write tests to assert that it behaves the same,
+increase test coverage of the existing interface (if possible), and then swap
+one for the other.
+
+The way I'm picturing the tests to be written is starting with functions that
+take a configuration source (e.g. a file path) and return a dictionary. Those
+source functions are called in the constructor for `Options`, but I'm not sure
+that `Options` would be able to be called during its refactoring, so I think it
+would be better to have a [`pydantic.BaseSettings`][] class that will replace
+the current `Options`, and use that to test and compare what is sure to be a
+nested dictionary data structure.
+
+In the configuration sources, I saw that it would be nice to use
+[`platformdirs`][], with the one caveat that [that package doesn't currently
+use `XDG_CONFIG_HOME` on Windows and macOS platforms][platformdirs win XDG].
+That can be worked around.
+
+The `CfgYaml` class has a `_dbg` method defined on it which appears to be a
+wrapper to print the file that caused the error. It also uses the `self._debug`
+attribute to check if debugging is enabled. These functionalities can be folded
+into the logging configuration: `self._debug` checks can be replaced with
+setting a log level, and there are a few ways to add extra context to a logging
+call, like a filter or formatter.
+
+I think the [`with open(` used to re-read the config file][yaml debug] is an
+arbitrary choice, as later, [`file.read()` is used to read a TOML file][toml
+load].
+
+The `CfgYaml` class has a `_load_yaml` method that may call `_yaml_load` which
+may call `__toml_load` or `__yaml_load`. That seems like it could use some
+de-nesting.
+
+The `dotdropt/logger.py` file is also a good first candidate for refactoring, as
+it looks like it provides a consistent interface that could easily be replaces
+by Python's builtin logging framework. It might take a bit of work to have color
+output, but I'm willing to sacrifice that for consistent use of a better logging
+interface everywhere.
+
+A lot of the options also look like they are set from `settings.Settings`,
+which looks like it could be a dataclass. Not using dataclasses is
+understandable, though, considering this project is designed to work on Python 3.5
+
+I think I'm personally going to part ways with any Python prior to 3.7, and
+anything earlier will be what I feel is useful to me.
+
+That said, there is a [backport of dataclasses available to 3.6][dataclasses
+backport], though CPython 3.6 has been end-of-life for 8 months at the time of
+writing.
+
+It also has `diff -r -u {0} {1}` as the `default_diff_command`, and I'm curious
+why `diff` was chosen when it feels more guaranteed that `git` is installed. I
+don't know if it's _that_ well-known that `git --no-index -- {0} {1}` works
+outside `git` directories.
+
+I think the unique construction of the warning message in `dotdrop/cfg_yaml.py`
+on lines 1161--1163 is from `pylint` complaining that the line is too long in an
+already heavily-indented section. I do want to use `isort` and `black`
+everywhere, but I'm holding off on only doing the files I change, and only the
+parts I work on.
+
+I think it's a bit confusing how a lot of the names for config file keys are set
+as `CfgYaml` class instance attributes, and stranger the seemingly arbitrary
+split between some of them being defined directly on the class, and some being
+imported from `dotdrop/settings.py`.
+
+`dotdrop/cfg_yaml.py:1243` won't run, since the previous check emits an error if
+that key is missing. Was the intent originally to allow validation to succeed
+when that key is missing? [No, both checks were introduced by the same
+commit.][9c54a524b765] I'm not sure what the intent was.
+
+The `CfgYaml.allowed_link_val` attribute seems to be redundant when the values
+it collects are checkable using the `dotdrop/linktypes.py:LinkTypes` enum.
+
+The `CfgYaml._get_entry()` function returns a `deepcopy()` which is immediately
+`.copy()`-d in a few places.
+
 [issue]: <https://github.com/deadc0de6/dotdrop/issues/55>
 [windows support]: <https://github.com/mawillcockson/dotdrop/projects/1>
 [magic pypi]: <https://pypi.org/project/magic/#history>
@@ -265,3 +482,13 @@ Ah, line `76`: it's storing the state of `DOTDROP_WORKERS` so it can disable it 
 [`nose`, which has been in maintenance for a while now.]: <https://nose.readthedocs.io/en/latest/#>
 [python-cymagic.txz]: <https://github.com/mawillcockson/dotdrop/raw/4662d62c9a3e73e474732f390ea42e066b300fd9/python-cymagic.txz>
 [remark-validate-links]: <https://github.com/remarkjs/remark-validate-links#install>
+[`pydantic`]: <https://github.com/samuelcolvin/pydantic/>
+[`python-inject`]: <https://github.com/ivankorobkov/python-inject>
+[pipx __main__.py]: <https://github.com/pypa/pipx/blob/4c0f2892c8f932f345a379b84bffe816c7c7206c/src/pipx/__main__.py>
+[`platformdirs`]: <https://github.com/platformdirs/platformdirs>
+[platformdirs win XDG]: <https://github.com/platformdirs/platformdirs/issues/4>
+[`pydantic.BaseSettings`]: <https://pydantic-docs.helpmanual.io/usage/settings/>
+[yaml debug]: <https://github.com/mawillcockson/dotdrop/commit/e8f4d9afe859c9f981cd70ae359442fb54473e46#diff-9ece3374f74361dfb8d8302a46b66cf5c1c324f9411ca6ecea2e7703a847abd5R1001-R1008>
+[toml load]: <https://github.com/mawillcockson/dotdrop/blob/81a306dd3903034eda47d26f022913dabcc733b7/dotdrop/cfg_yaml.py#L1281-L1282>
+[dataclasses backport]: <https://github.com/ericvsmith/dataclasses>
+[9c54a524b765]: <https://github.com/mawillcockson/dotdrop/commit/9c54a524b7654845ba1fa4d1591a5bb72cd3c03c#diff-9ece3374f74361dfb8d8302a46b66cf5c1c324f9411ca6ecea2e7703a847abd5R1025-R1034>
